@@ -37,6 +37,7 @@ class WC_Manifest{
         add_action('admin_menu', array( &$this, 'woocommerce_manifest_admin_menu' )); 
         add_action('wp_ajax_my_actions', array(&$this, 'my_actions_callback'));
         add_action('wp_ajax_my_orderaction',array(&$this,'my_orderaction_callback'));
+        add_filter( 'woocommerce_reports_charts',array(&$this,'getCustomReportTab'));
     }
     
     function my_orderaction_callback(){
@@ -60,7 +61,7 @@ class WC_Manifest{
              <td style="padding:7px 7px 8px; ">'.$theorder->order_total.'</td>
              <td style="padding:7px 7px 8px; ">'.$theorder->payment_method.'</td>
              <td style="padding:7px 7px 8px; ">'.$theorder->status.'</td>
-             <td style="padding:7px 7px 8px; "><a class="rem" rel="'.$theorder->id.'">Remove</a></td>
+                  <td style="padding:7px 7px 8px; "><a class="rem" rel="'.$theorder->id.'">Remove</a></td>
              </tr>';
              exit;
      }
@@ -70,16 +71,46 @@ class WC_Manifest{
       $coutn = 0;
       $orderString = '';
       
-      $terms1 = get_term_by('slug', 'readyshipped', 'shop_order_status');
+      $terms1 = get_term_by('slug', 'processing', 'shop_order_status');
       $aramax = $wpdb->get_results("SELECT * FROM ".$wpdb->prefix."term_relationships WHERE `term_taxonomy_id` = ".$terms1->term_taxonomy_id);
       foreach($aramax as $key=>$val){  
         $meta_values = get_post_meta($val->object_id);
+        if($_POST['paytype']=='all'){
+        //  echo '<pre>';
+        //  print_r($meta_values);
         $meta_values['_tracking_provider'][0];
         if($meta_values['_tracking_provider'][0]==$_POST['valselected']){
             $orderString .= $val->object_id.'('.$meta_values["_tracking_number"][0].'),';
             $onlyOrders  .= $val->object_id.',';
             $onlyShipments .= $meta_values["_tracking_number"][0].',';
             $coutn++;
+        }
+        } else{
+            if($_POST['paytype']=='cod'){
+                     
+                       if($meta_values['_payment_method'][0]=='cod'){
+        if($meta_values['_tracking_provider'][0]==$_POST['valselected']){
+            $orderString .= $val->object_id.'('.$meta_values["_tracking_number"][0].'),';
+            $onlyOrders  .= $val->object_id.',';
+            $onlyShipments .= $meta_values["_tracking_number"][0].',';
+            $coutn++;
+        }
+                       }
+            } else {
+                           
+                       if($meta_values['_payment_method'][0]!='cod'){
+        if($meta_values['_tracking_provider'][0]==$_POST['valselected']){
+            $orderString .= $val->object_id.'('.$meta_values["_tracking_number"][0].'),';
+            $onlyOrders  .= $val->object_id.',';
+            $onlyShipments .= $meta_values["_tracking_number"][0].',';
+            $coutn++;
+        }
+                       }
+                
+                
+            }
+            
+            
         }
            
       }
@@ -94,7 +125,7 @@ class WC_Manifest{
      */
     
     function getShippingProvider(){
-        $shippingArray = array('select'=>'select','blue-dart'=>'bluedart','aramex'=>'aramex','quantium'=>'quantium','indiapost'=>'indiapost','dtdc'=>'dtdc');
+        $shippingArray = array('select'=>'select','blue-dart'=>'bluedart','aramex'=>'aramex','quantium'=>'quantium','indiapost'=>'indiapost','dtdc'=>'dtdc','self'=>'self');
         $selection = "<select id='selectprovider' name='selectprovider' >";
         foreach($shippingArray as $key=>$val){
             $selection .= "<option value='$key'>$val</option>";
@@ -104,13 +135,26 @@ class WC_Manifest{
         return $selection; 
     }
     
+    function paymentType(){
+         $payArray = array('all'=>'All','cod'=>'Cod','prepaid'=>'Prepaid');
+        $selection = "<select id='paytype' name='paytype' >";
+        foreach($payArray as $key=>$val){
+            $selection .= "<option value='$key'>$val</option>";
+        }
+        
+        $selection .= '</select>';
+        return $selection; 
+        
+    }
+    
        /**
         * 
         * Create admin menu page
         */ 
                             
        function woocommerce_manifest_admin_menu() {
-              add_menu_page(__('Manifest','wc-checkout-cod-pincodes'), __('Manifest','wc-checkout-cod-pincodes'), 'manage_options', 'eshopbox-manifest', array( &$this, 'eshopbox_manifest_page' ) );
+           //  add_menu_page(__('Manifest','wc-checkout-cod-pincodes'), __('Manifest','wc-checkout-cod-pincodes'), 'manage_options', 'woocommerce-manifest', array( &$this, 'woocommerce_manifest_page' ) );
+ add_menu_page(__('Manifest','wc-checkout-cod-pincodes'), __('Manifest','wc-checkout-cod-pincodes'), 'manage_options', 'eshopbox-manifest', array( &$this, 'eshopbox_manifest_page' ) );
          //  add_submenu_page('woocommerce', __( 'Manifest', 'wc-checkout-cod-pincodes' ), __( 'Manifest', 'woocommerce-manifest' ), 'manage_woocommerce', 'woocommerce-manifest', array( &$this, 'woocommerce_manifest_page' ) );
 	}
         
@@ -126,9 +170,8 @@ class WC_Manifest{
 		}
                
                 wp_enqueue_media();
-                // when form post 
                 
-                if($_POST['manifest']=='true'){
+                                if($_POST['manifest']=='true'){
                     if(count($_POST['check'])>0){
                         
                       foreach($_POST['check'] as $key=>$value)
@@ -146,7 +189,7 @@ class WC_Manifest{
 <div class="wrap">
     <div id="icon-options-general" class="icon32"><br /></div>
     <h2><?php _e( 'Create Manifest', 'wc-checkout-cod-pincodes' ); ?></h2>
-    <?php if(count($_POST['check'])>0){     
+   <?php if(count($_POST['check'])>0){     
     ?>
     <div id="message" class="updated fade"><p><strong><?php _e( 'Order id '.substr($orderStrings,0,-1).'  have been marked as shipped.', 'wc_shipment_tracking' ); ?></strong></p></div>
     <?php } ?>
@@ -159,6 +202,17 @@ class WC_Manifest{
                 <h3 class="hndle"><?php _e( 'Manifest', 'woocommerce-pip' ); ?></h3>
                 <div class="inside pip-preview">
                     <table class="form-table">
+                         <tr>
+                            <th>
+                                 <label for="woocommerce_cod_aramex"><b><?php _e( 'Payment Type :', 'woocommerce-manifest' ); ?></b></label>
+                             </th>
+                             <td>
+                                 <?php echo $this->paymentType();  ?><br />
+                             </td>
+                       </tr>  
+                        
+                        
+                        
                         <tr>
                             <th>
                                  <label for="woocommerce_cod_aramex"><b><?php _e( 'Select provider :', 'woocommerce-manifest' ); ?></b></label>
@@ -199,7 +253,7 @@ class WC_Manifest{
 <form name="manifestform" id="manifestform" style="margin:4px 15px 0 0;" method="post" action="<?php echo $this->plugin_url() ?>/printmanifest.php" target="_blank">                               
     <div id="manifesttable">
     <input type="submit" id="submit" class="button" name="submit" style="margin-bottom: 10px; margin-right:20px" value="Create Manifest" />
- <input type="submit" id="asd" class="button markasship" name="dsd" style="margin-bottom: 10px" value="Mark Ship" /> 
+   <input type="submit" id="asd" class="button markasship" name="dsd" style="margin-bottom: 10px" value="Mark Ship" /> 
         <table width="100%" cellspacing="0" cellpadding="0" class="widefat">
             <thead>
                 <tr>
@@ -212,6 +266,7 @@ class WC_Manifest{
         <th style="padding:7px 7px 8px;">Payment Method</th>
 
         <th style="padding:7px 7px 8px;">Status</th>
+        <th style="padding:7px 7px 8px;">Action</th>
         </tr></thead>
             <tfoot>
                 <tr>
@@ -224,6 +279,7 @@ class WC_Manifest{
         <th style="padding:7px 7px 8px;">Payment Method</th>
 
         <th style="padding:7px 7px 8px;">Status</th>
+        <th style="padding:7px 7px 8px;">Action</th>
         </tr></tfoot>
        
    
@@ -236,6 +292,7 @@ class WC_Manifest{
 <input type="hidden" id="onlyorders" name="onlyorders" value="" />
 <input type="hidden" id="onlyshipments" name="onlyshipments" value="" />
 <input type="hidden" name="manifest" value="true" /> 
+<input type="hidden" name="paymethod" id="paymethod" value="" /> 
 <input type="submit" id="submit" class="button" name="submit" style="margin-top: 10px; margin-right:20px" value="Create Manifest" />
 <input type="submit" id="markasship" class="button markasship" name="markasship" style="margin-top: 10px;" value="Mark Ship" />
 
@@ -246,7 +303,7 @@ class WC_Manifest{
 $woocommerce->add_inline_js("
     jQuery(document).ready(function(){
     
-jQuery('.markasship').on('click',function(event){
+    jQuery('.markasship').on('click',function(event){
    // event.preventDefault();
    var checkcheck = 0;
         $(':checkbox').each(function() {
@@ -269,12 +326,12 @@ return false;
 
 jQuery('.rem').live('click',function(event){
     event.preventDefault();
-   // alert('tining tining');
+
     jQuery('#'+jQuery(this).attr('rel')+'tr').remove();
 
 });
-
-
+    
+    
 $('.select-all').on('click',function(event) {   
     if(this.checked) {
         // Iterate each checkbox
@@ -329,13 +386,16 @@ return false;
     });  
 
     jQuery('#selectprovider').bind('change',function(){
-   
+   var payType = jQuery('#paytype').val()
     jQuery('#shipprovider').val(jQuery(this).val());
+    jQuery('#paymethod').val(payType);
+
       jQuery('#loadimg').show();
           var data = {
           action: 'my_actions',
           whatever: 1234,
-          valselected : jQuery(this).val()
+          valselected : jQuery(this).val(),
+          paytype : payType
   };
 
 jQuery.post(ajaxurl, data, function(response) {
@@ -400,5 +460,90 @@ jQuery.post(ajaxurl, data, function(response) {
         require_once(ABSPATH . 'wp-admin/upgrade-functions.php');
         dbDelta($sql);  
     }
+    
+    function getCustomReportTab($charts){
+    
+    $charts['manifest']= array(
+			'title'         => __( 'Manifest', 'woocommerce' ),
+			'charts'        => array(
+				array(
+					'title'       => __( 'Overview', 'woocommerce' ),
+					'description' => '',
+					'hide_title'  => true,
+					'function'    => array(&$this,'woocommerce_manifest')
+				),
+			)
+		);
+    
+        return $charts;
+    
+}
+
+
+
+
+
+function woocommerce_manifest(){
+    
+global $wpdb,$woocommerce;
+   echo '<form method="post" action="" style="margin-top:80px;">
+<p><label for="from">From</label> <input type="text" name="start_date" id="from"  value="'.$_POST['start_date'].'" /> <label for="to">To</label> <input type="text" name="end_date" id="to"  value="'.$_POST['end_date'].'" /> <input type="submit" class="button" value="Show" /></p>
+	<input type="hidden" name="manipost" value="true" /></form>';
+   
+            if($_POST['manipost']=='true'){
+                $to =  explode('-',$_POST['start_date']);
+                $toDate =  mktime(0,0,0,$to[1],$to[2],$to[0]);
+                $from = explode('-',$_POST['end_date']);
+                $fromDate =  mktime(0,0,0,$from[1],$from[2],$from[0]);
+             //   echo "SELECT id,orderid,dates from wp_manifest where dates between $toDate and $fromDate ";
+                $re = $wpdb->get_results( $wpdb->prepare( "SELECT id,orderid,dates,provider,paytype from wp_manifest where dates between $toDate and $fromDate "));
+           echo '<div style="clear:both;"><div style="float:left;width:100px;">ID</div><div style="float:left;width:400px;">Order Id</div><div style="float:left;width:100px;">Date</div><div style="float:left;width:100px;">Action</div></div>';
+            foreach($re as $key=>$val){
+                $ah = '';
+                    $getOrderId = explode(',',$val->orderid);
+                    foreach($getOrderId as $key1=>$val1){
+            $ah .='<input type="hidden" class="" name="check[]"  value="'.$val1.'" />';           
+                        
+                        
+            }
+                
+                echo '<div style="clear:both;"><div style="float:left;width:100px;">'.$val->id.'</div><div style="float:left;width:400px;">'.$val->orderid.'</div><div style="float:left;width:100px;">'.date('d-m-Y',$val->dates).'</div><div style="float:left;width:100px;"><form method="post" target="_blank" action="'.$this->plugin_url().'/printmanifest.php?history=true&manid='.$val->id.'&mandate='.$val->dates.'">'.$ah.'<input type="submit" value="print" /><input type="hidden" id="shipprovider" name="shipprovider" value="'.$val->provider.'" /><input type="hidden" name="paymethod" id="paymethod" value="'.$val->paytype.'" /> </form></div></div>';
+            }    
+                
+              // echo '<pre>';
+              //  print_r($re);
+//$wpdb->get_var( $wpdb->prepare( "SELECT SUM( order_item_meta.meta_value" ));
+            }
+            echo'<script type="text/javascript">
+                jQuery(document).ready(function(){
+                    		var dates = jQuery( "#from, #to" ).datepicker({
+		defaultDate: "",
+		dateFormat: "yy-mm-dd",
+		numberOfMonths: 1,
+		minDate: "-12M",
+		maxDate: "+0D",
+		showButtonPanel: true,
+		showOn: "button",
+		buttonImage: "'.$woocommerce->plugin_url().'/assets/images/calendar.png",
+		buttonImageOnly: true,
+		onSelect: function( selectedDate ) {
+			var option = this.id == "from" ? "minDate" : "maxDate",
+				instance = jQuery( this ).data( "datepicker" ),
+				date = jQuery.datepicker.parseDate(
+					instance.settings.dateFormat ||
+					jQuery.datepicker._defaults.dateFormat,
+					selectedDate, instance.settings );
+			dates.not( this ).datepicker( "option", option, date );
+		}
+	});
+
+                });
+
+	</script>';
+            
+}
+    
+    
+    
 }
 new WC_Manifest();

@@ -3,7 +3,7 @@ include_once($_SERVER['DOCUMENT_ROOT'].'/wp-load.php' );
 global $woocommerce;
 global $wpdb;
 $pluginPath =  untrailingslashit( plugins_url( '/', __FILE__ ) );
-
+/*
 if(count($_POST['check'])>0){
      // insert into manifest table
 $wpdb->insert( 
@@ -17,6 +17,49 @@ $wpdb->insert(
  );
  $manifestId = $wpdb->insert_id;     
  }
+ * 
+ */
+if(!isset($_GET['history'])){
+if(count($_POST['check'])>0){
+
+    
+     // insert into manifest table
+$wpdb->insert( 
+    $wpdb->prefix.'manifest', 
+    array( 
+            'orderid' => implode(',',$_POST['check']),
+            'dates' => time(),
+            'provider' => $_POST['shipprovider'],
+            'paytype'  => $_POST['paymethod']
+
+    )
+ );
+ $manifestId = $wpdb->insert_id;     
+ $manifestDate = date('d-m-Y');
+ }
+} else {
+     $manifestId = $_GET['manid'];     
+     $manifestDate = date('d-m-Y',$_GET['mandate']);
+  // do nothing  
+}
+$displayCustAreaCode = false;
+if($_POST['shipprovider']=='blue-dart'){
+    if($_POST['paymethod']!=''){
+    $displayCustAreaCode = true;
+        if($_POST['paymethod']=='cod'){
+           if(stripslashes(get_option( 'cod_areacustomer' ))!=''){
+               $areaCustomerCode = stripslashes(get_option( 'cod_areacustomer' ));
+           }     
+        } else {
+           if(stripslashes(get_option( 'prepaid_areacustomer' ))!=''){
+               $areaCustomerCode = stripslashes(get_option( 'prepaid_areacustomer' ));
+           }   
+        }
+    
+    }
+    
+}
+
 
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -122,7 +165,7 @@ $wpdb->insert(
 											</tr>
 											<tr>
 												<td colspan="2" style="font-size:15px;">
-													<?php $siteURL =  explode('/eshopbox',site_url()); 
+									<?php $siteURL =  explode('/eshopbox',site_url()); 
                                                                                                             echo $siteURL[0];
                                                                                                         
                                                                                                         ?>
@@ -153,7 +196,7 @@ $wpdb->insert(
 											<tr>
 												<td style="font-family:Arial; font-size:11px; color:#000; text-align: right;"><b>Manifest Date</b>
 												</td>
-												<td style="font-family:Arial; font-size:11px; color:#000; text-align: right;"><?php echo date('d-m-Y');  ?></td>
+												<td style="font-family:Arial; font-size:11px; color:#000; text-align: right;"><?php echo $manifestDate;  ?></td>
 											</tr>
                                                                                     <!--
 											<tr>
@@ -194,7 +237,14 @@ $wpdb->insert(
 													<?php echo $_POST['shipprovider'];  ?>
 												</td>
 											</tr>
-											
+                                                                                   <?php if($displayCustAreaCode){ ?>
+                                                                                    <tr><td><b>Customer Code</b>
+                                                                                            </td>
+												<td style="text-transform:capitalize;">
+													<?php echo $areaCustomerCode;  ?>
+												</td>
+											</tr>
+                                                                                   <?php }  ?>	
 										</tbody>
 									</table>
 									<!-- table for header logo and left bar -->
@@ -260,6 +310,7 @@ $k=1;
 
 foreach($_POST['check'] as $key=>$value)
 {
+$product_id='';
  $order_id=$value;
  $orderobj=new WC_Order($order_id);
  $shippingadd = $orderobj->get_formatted_shipping_address();
@@ -267,11 +318,26 @@ foreach($_POST['check'] as $key=>$value)
 // echo"<pre>";print_r($orderobj);
  $shipdetail=get_post_meta($order_id);
  foreach ( $items as $item ) {
+     $_product = $orderobj->get_product_from_item( $item );
+    // echo '<pre>'; 
+    // print_r($item);
     $product_name = $item['name'];
     $product_id .= $item['product_id'].',';
-    $product_variation_id = $item['variation_id'];
+    $product_variation_id = $item['variation_id']; 
+    $sku = $wpdb->get_var( $wpdb->prepare( "SELECT meta_value  FROM $wpdb->postmeta WHERE meta_key='_sku' AND post_id='%d' LIMIT 1", $product_id ) ); 
+    $we =  $_product->get_weight();
+     $we = 0.2;
+    if($we==''){
+        $we = 'n/a';
+    } else {
+        $we = $we.' kg';
+    }
 }
-
+if($orderobj->payment_method=='payu_in'){
+    $pMethod = "Noncod";
+} else {
+     $pMethod = $orderobj->payment_method;
+}
 ?>
         <script>
        //   $(function(){
@@ -297,13 +363,13 @@ foreach($_POST['check'] as $key=>$value)
 												</td>
 												<td style="border-bottom:1px dashed #000; padding: 6px; 0px; font-weight:normal; font-size:12px; color:#000; font-family:Arial; Helvetica, sans-serif"><b><?php echo $order_id; ?></b><br/>
 												</td>
-												<td style="border-bottom:1px dashed #000; padding: 6px; 0px; font-weight:normal; font-size:12px; color:#000; font-family:Arial; Helvetica, sans-serif"><?php echo substr($product_id,0,-1); ?>
+												<td style="border-bottom:1px dashed #000; padding: 6px; 0px; font-weight:normal; font-size:12px; color:#000; font-family:Arial; Helvetica, sans-serif"><?php echo $sku; ?>
 												</td>
 												<td style="border-bottom:1px dashed #000; padding: 6px; 0px; font-weight:normal; font-size:12px; color:#000; font-family:Arial; Helvetica, sans-serif"><?php echo $shippingadd;  ?><br/><?php echo $orderobj->billing_phone; ?>
 												</td>
-												<td style="border-bottom:1px dashed #000; padding: 6px; 0px; font-weight:normal; font-size:12px; color:#000; font-family:Arial; Helvetica, sans-serif">N/A
+												<td style="border-bottom:1px dashed #000; padding: 6px; 0px; font-weight:normal; font-size:12px; color:#000; font-family:Arial; Helvetica, sans-serif"><?php echo $we; ?>
 												</td>
-												<td style="border-bottom:1px dashed #000; padding: 6px; 0px; font-weight:normal; font-size:12px; color:#000; font-family:Arial; Helvetica, sans-serif"><?php echo $orderobj->payment_method; ?>
+												<td style="border-bottom:1px dashed #000; padding: 6px; 0px; font-weight:normal; font-size:12px; color:#000; font-family:Arial; Helvetica, sans-serif"><?php echo $pMethod; ?>
 												</td>
 												<td width="20%" style="border-bottom:1px dashed #000; padding: 6px; 0px; font-weight:normal; font-size:12px; color:#000; font-family:Arial; Helvetica, sans-serif">    <input type="hidden" id="barcodeValue<?php echo $i; ?>" value="<?php echo get_post_meta( $order_id, '_tracking_number', true ); ?>">
      
