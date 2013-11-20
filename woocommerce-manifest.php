@@ -125,7 +125,7 @@ class WC_Manifest{
      */
     
     function getShippingProvider(){
-        $shippingArray = array('select'=>'select','blue-dart'=>'bluedart','aramex'=>'aramex','quantium'=>'quantium','indiapost'=>'indiapost','dtdc'=>'dtdc','self'=>'self');
+        $shippingArray = array('select'=>'select','blue-dart'=>'bluedart','aramex'=>'aramex','quantium'=>'quantium','indiapost'=>'indiapost','dtdc'=>'dtdc','delhivery'=>'delhivery','self'=>'self');
         $selection = "<select id='selectprovider' name='selectprovider' >";
         foreach($shippingArray as $key=>$val){
             $selection .= "<option value='$key'>$val</option>";
@@ -295,6 +295,7 @@ class WC_Manifest{
 <input type="hidden" name="paymethod" id="paymethod" value="" /> 
 <input type="submit" id="submit" class="button" name="submit" style="margin-top: 10px; margin-right:20px" value="Create Manifest" />
 <input type="submit" id="markasship" class="button markasship" name="markasship" style="margin-top: 10px;" value="Mark Ship" />
+<input type="submit" id="uploaddelhiverymanifest" class="button" name="uploaddelhiverymanifest" style="margin-top: 10px;" value="Upload Delhivery manifest" />
 
 </form>
 
@@ -302,7 +303,17 @@ class WC_Manifest{
 // ajax call
 $woocommerce->add_inline_js("
     jQuery(document).ready(function(){
-    
+    //var xyz = escape(".$this->plugin_url().");
+      //  alert(xyz);
+    jQuery('#uploaddelhiverymanifest').bind('click',function(event){
+      //  event.preventDefault();
+        jQuery('#manifestform').attr('action','http://yoda.in/wp-content/plugins/manifest/pushdelhiverymanifest.php');
+        jQuery('#manifestform').attr('target','_blank');
+         $('#manifestform').submit();
+
+    });
+
+
     jQuery('.markasship').on('click',function(event){
    // event.preventDefault();
    var checkcheck = 0;
